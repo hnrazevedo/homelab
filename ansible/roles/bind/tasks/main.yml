@@ -1,0 +1,88 @@
+---
+- name: Configure DNS external
+  ansible.builtin.shell:
+    cmd: "echo \"nameserver {{ dns_gateway }}\" > /etc/resolv.conf "
+    executable: /bin/bash
+
+- name: Install bind
+  ansible.builtin.dnf:
+    name: bind
+    state: present
+
+- name: Stop bind service
+  ansible.builtin.service:
+    name: named
+    state: stopped
+    enabled: false
+  
+- name: Change group and permissions of path of logs
+  ansible.builtin.file:
+    state: directory
+    path: /var/log/named
+    owner: named
+    group: named
+    mode: '0775'
+    force: true
+
+- name: Copy named.conf
+  ansible.builtin.copy:
+    src: ../files/named.conf
+    dest: /etc/named.conf
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+
+- name: Copy domain.zone
+  ansible.builtin.copy:
+    src: "../files/domain.local.zone"
+    dest: "/var/named/{{ localdomain }}.zone"
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+
+- name: Copy domain.rev.zone
+  ansible.builtin.copy:
+    src: "../files/domain.local.rev.zone"
+    dest: "/var/named/{{ localdomain }}.rev.zone"
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+
+- name: Named config
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop: 
+    - { path: "/etc/named.conf", regexp: "localdomain_change", replace: "{{ localdomain }}" }
+    - { path: "/etc/named.conf", regexp: "listen_ip_change", replace: "{{ listen_ip }}" }
+    - { path: "/etc/named.conf", regexp: "interface_change", replace: "{{ interface }}" }
+    - { path: "/etc/named.conf", regexp: "forwarders_change", replace: "{{ forwarders }}" }
+    - { path: "/var/named/{{ localdomain }}.zone", regexp: "localdomain_change", replace: "{{ localdomain }}" }
+    - { path: "/var/named/{{ localdomain }}.zone", regexp: "listen_ip_change", replace: "{{ listen_ip }}" }
+    - { path: "/var/named/{{ localdomain }}.rev.zone", regexp: "localdomain_change", replace: "{{ localdomain }}" }
+
+- name: Register DNS
+  ansible.builtin.lineinfile:
+    path: "/var/named/{{ localdomain }}.zone"
+    line: "{{ item.hostname }} IN A {{ item.ip }}"
+  loop: "{{ dns }}"
+
+- name: Register reverse DNS
+  ansible.builtin.lineinfile:
+    path: "/var/named/{{ localdomain }}.rev.zone"
+    line: "{{ item.ip.split('.')[-1] }} IN PTR {{ item.hostname }}.{{ localdomain }}."
+  loop: "{{ dns }}"
+
+- name: Start bind service
+  ansible.builtin.service:
+    name: named
+    state: started
+    enabled: true
+
+- name: Restart to return correct dns settings
+  ansible.builtin.reboot:
+    reboot_timeout: 3600

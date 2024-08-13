@@ -1,0 +1,9 @@
+$TTL 1D
+@ IN SOA ns.localdomain_change. root.localdomain_change. (
+                                    1 ; serial
+                                    1D ; refresh
+                                    1H ; retry
+                                    1W ; expire
+                                    3H ) ; minimum
+@ IN NS ns.localdomain_change.
+@ IN A listen_ip_change

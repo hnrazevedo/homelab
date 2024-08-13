@@ -1,0 +1,42 @@
+---
+- name: Install podman
+  ansible.builtin.dnf:
+    name: podman
+    state: present
+
+- name: Copy container-pihole.service
+  ansible.builtin.copy:
+    src: ../files/container-pihole.service
+    dest: /etc/systemd/system/container-pihole.service
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+
+- name: Replace the config container service
+  ansible.builtin.replace:
+    path: /etc/systemd/system/container-pihole.service
+    regexp: "{{ item.regex }}"
+    replace: "{{ item.replace }}"
+  loop:
+   - { regex: "timezone_change", replace: "{{ timezone }}" }
+   - { regex: "password_change", replace: "{{ password }}" }
+   - { regex: "dns_change", replace: "{{ dns }}" }
+   - { regex: "fqdn_change", replace: "{{ fqdn }}" }
+
+- name: Create volumes paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    force: true
+  loop:
+    - "/home/edge/pihole/etc-pihole"
+    - "/home/edge/pihole/etc-dnsmasq.d"
+
+- name: Restart service container-pihole
+  ansible.builtin.systemd_service:
+    enabled: true
+    state: started
+    daemon_reload: true
+    name: container-pihole

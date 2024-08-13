@@ -1,0 +1,57 @@
+---
+- name: Install packages 1/3
+  ansible.builtin.dnf:
+    name:
+      - "@base"
+      - "@core"
+      - "epel-release"
+      - "firewalld"
+
+- name: Install packages 2/3
+  ansible.builtin.dnf:
+    name:
+      - "https://yum.theforeman.org/releases/3.10/el9/x86_64/foreman-release.rpm"
+      - "https://yum.puppet.com/puppet7-release-el-9.noarch.rpm"
+      - "https://yum.theforeman.org/katello/4.12/katello/el9/x86_64/katello-repos-latest.rpm"
+    disable_gpg_check: true
+
+- name: Install packages 3/3
+  ansible.builtin.dnf:
+    name:
+      - "puppet-agent"
+      - "foreman-installer-katello"
+  
+- name: Enable Firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Install foreman with katello scenario
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - foreman-installer --scenario katello --tuning development --foreman-proxy-bind-host '*'
+    - foreman-installer --enable-foreman-plugin-ansible --enable-foreman-proxy-plugin-ansible
+
+- name: Permit HTTPS/HTTP traffic
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    zone: public
+    state: enabled
+  loop:
+    - http
+    - https
+
+- name: Always reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+
+- name: Get default password Foreman
+  ansible.builtin.shell: grep -i foreman::initial_admin_password /var/log/foreman-installer/katello.log | grep value | cut -d '"' -f4
+  register: foreman_password
+
+- name: Show default password Foreman
+  ansible.builtin.debug:
+    msg: "{{ foreman_password.stdout }}"

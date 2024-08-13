@@ -1,0 +1,35 @@
+- name: Setup internal DNS server
+  become: true
+  hosts: ns
+  roles:
+    - bind
+
+- name: Update packages and timezone
+  become: true
+  hosts: servers
+  roles:
+    - servers
+
+- name: Setup PI-Hole server
+  become: true
+  hosts: pihole
+  roles:
+    - pihole
+
+- name: Setup IDM server
+  become: true
+  hosts: idm
+  roles:
+    - idm
+
+- name: Setup Foreman server
+  become: true
+  hosts: foreman
+  roles:
+    - foreman
+
+- name: Setup AWX server
+  become: true
+  hosts: awx
+  roles:
+    - awx

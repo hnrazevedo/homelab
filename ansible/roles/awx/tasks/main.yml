@@ -1,0 +1,121 @@
+---
+- name: Install extra repo
+  ansible.builtin.dnf:
+    name: 
+      - epel-release
+    state: present
+
+- name: Install packages
+  ansible.builtin.dnf:
+    name: 
+      - git
+      - curl
+      - vim
+      - wget
+      - openssh-server
+      - make
+      - ansible
+      - firewalld
+    state: present
+
+- name: Disable firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: stopped
+    enabled: false
+
+- name: Define env
+  ansible.builtin.command: "echo $PATH"
+  environment:
+    NAMESPACE: awx
+    INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+    INSTALL_K3S_SELINUX_WARN: "true"
+  ignore_errors: true
+
+- name: Install K3S
+  ansible.builtin.shell:
+    cmd: "{{ item }}"
+    executable: /bin/bash
+  loop:
+    - "wget https://get.k3s.io -O k3s.sh"
+    - "bash k3s.sh"
+    - "semanage fcontext -a -t bin_t \"/usr/local/bin/k3s\""
+    - "restorecon -v /usr/local/bin/k3s"
+    - "ln -sf /usr/local/bin/kubectl /usr/bin/kubectl"
+    - "swapoff -a"
+  ignore_errors: true
+
+- name: Start K3S
+  ansible.builtin.service:
+    name: k3s
+    state: started
+    enabled: true
+
+- name: Register Release AWX
+  ansible.builtin.shell: 
+    cmd: "curl -s https://api.github.com/repos/ansible/awx-operator/releases/latest | grep tag_name | cut -d '\"' -f 4"
+    executable: /bin/bash
+  register: awx_release_tag
+
+- name: Git clone
+  ansible.builtin.git:
+    repo: 'https://github.com/ansible/awx-operator.git'
+    dest: /root/awx-operator
+    version: "{{ awx_release_tag.stdout }}"
+    force: true
+
+- name: Create and Config NS
+  ansible.builtin.shell: 
+    cmd: "{{ item }}"
+    executable: /bin/bash
+  loop:
+    - "kubectl create ns awx"
+    - "kubectl config set-context --current --namespace=awx"
+  ignore_errors: true
+
+- name: Run deploy target as root
+  ansible.builtin.make:
+    chdir: /root/awx-operator
+    target: deploy
+
+- name: Copy awx.yml
+  ansible.builtin.copy:
+    src: ../files/awx.yml
+    dest: /root/awx-operator/awx.yml
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+
+- name: Pause for 2 minutes to deploy
+  ansible.builtin.pause:
+    minutes: 2
+
+- name: Apply kubectl
+  ansible.builtin.shell: 
+    cmd: "kubectl apply -f /root/awx-operator/awx.yml"
+    executable: /bin/bash
+
+- name: Pause for 2 minutes to apply
+  ansible.builtin.pause:
+    minutes: 2
+
+- name: Return default password
+  ansible.builtin.shell: 
+    cmd: "kubectl get secret awx-demo-admin-password -o jsonpath=\"{.data.password}\" | base64 --decode ; echo"
+    executable: /bin/bash
+  register: default_password_awx
+
+- name: Show default password 
+  ansible.builtin.debug:
+    msg: "{{ default_password_awx.stdout }}"
+
+- name: Return default port
+  ansible.builtin.shell: 
+    cmd: "kubectl get services -n awx | grep 80 | awk '{print $5}' | cut -d \":\" -f2"
+    executable: /bin/bash
+  register: default_port_awx
+
+- name: Show default port 
+  ansible.builtin.debug:
+    msg: "{{ default_port_awx.stdout }}"

@@ -1,0 +1,6 @@
+---
+fqdn: idm.domain.local
+domain: domain.local
+hostname: idm
+ip: 0.0.0.0
+password: change_me

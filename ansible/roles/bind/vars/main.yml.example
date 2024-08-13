@@ -1,0 +1,13 @@
+---
+localdomain: domain.local
+interface: "0.0.0"
+listen_ip: "0.0.0.0"
+forwarders: "0.0.0.0"
+dns_gateway: "0.0.0.0"
+hosts:
+  - { host: "pve", ip: "0.0.0.0" }
+  - { host: "ns", ip: "0.0.0.0" }
+  - { host: "pi-hole", ip: "0.0.0.0" }
+  - { host: "idm", ip: "0.0.0.0" }
+  - { host: "foreman", ip: "0.0.0.0" }
+  - { host: "awx", ip: "0.0.0.0" }

@@ -1,0 +1,5 @@
+---
+timezone: America/Sao_Paulo
+password: admin
+fqdn: pi-hole.domain.local
+dns: 0.0.0.0
