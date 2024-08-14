@@ -1,6 +1,13 @@
 # Homelab
 Laboratório para testes utilizando IaC em meu servidor Proxmox
 
+## Laboratório
+Provisionamento utilizando Terraform, instalação e configuração com Ansible.
+
+### Proposta de estudo
+Com este projeto é possível realizar o provisionamento e configuração dos seguintes serviços:
+Bind, Pi-hole, IDM, Foreman e AWX.
+
 ## Preparando ambiente Proxmox para o Terraform
 
 Crie um usuário que será utilizado no Terraform para autênticação no servidor Proxmox
@@ -75,11 +82,3 @@ Na máquina host, execute o terraform por meio de um container e realize a cria�
 /app/terraform # terraform apply -var-file=.env -auto-approve
 ```
 
-## Construindo Cluster Kubernetes com Ansible
-
-Configure o usuário de autênticação dos nodes, os endereços IP dos Masters e Workers no arquivo de inventário que se encontra no subdiretório ansible.
-
-Após inventário configurado, aplique o playbook para a criação do cluster:
-```sh
-# ansible-playbook -i hosts site.yml
-```
