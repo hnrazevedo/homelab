@@ -33,3 +33,9 @@
   hosts: awx
   roles:
     - awx
+
+- name: Setup Gitlab server
+  become: true
+  hosts: gitlab
+  roles:
+    - gitlab

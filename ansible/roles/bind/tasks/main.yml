@@ -83,6 +83,11 @@
     state: started
     enabled: true
 
+- name: Configure DNS local
+  ansible.builtin.shell:
+    cmd: "echo \"nameserver {{ listen_ip }}\" > /etc/resolv.conf "
+    executable: /bin/bash
+
 - name: Restart to return correct dns settings
   ansible.builtin.reboot:
     reboot_timeout: 3600
