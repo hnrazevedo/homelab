@@ -10,12 +10,13 @@ resource "proxmox_vm_qemu" "servers" {
     memory      = var.qemu_config[count.index].memory
     sockets     = var.qemu_config[count.index].sockets
     cores       = var.qemu_config[count.index].cores
+    onboot       = var.qemu_config[count.index].onboot
     full_clone  = true
     agent       = var.qemu_config[count.index].agent
     ipconfig0   = "ip=${var.qemu_config[count.index].ip0}/24,gw=192.168.100.1"
     target_node = var.qemu_config[count.index].node
     clone       = var.qemu_config[count.index].template
-    sshkeys     = var.ssh_key
+    sshkeys     = join("\n",var.ssh_key)
 
     disks {
         ide {
@@ -29,7 +30,7 @@ resource "proxmox_vm_qemu" "servers" {
             scsi0 {
                 disk {
                     storage = "local-lvm"
-                    size = 10
+                    size = var.qemu_config[count.index].root_disk
                 }
             }
         }

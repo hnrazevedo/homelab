@@ -16,3 +16,27 @@
     state: latest
     update_cache: yes
   ignore_errors: true
+
+- name: Allow access via ssh by authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+    regexp: "PasswordAuthentication"
+    line: "PasswordAuthentication yes"
+      
+- name: Restart sshd for enable access via ssh by authentication
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+
+- name: Add the user 'satrexec' for remote executations
+  ansible.builtin.user:
+    name: satrexec
+    password: "$6$kQ89wzxODuY6DD76$vfN6onXW8z5i0rY1FO1IaJ5cCkv/jHJcX96YE/waOp2Za8rYo1ffm0PtI6NNDhFHixvzzz0u9GUZNNdD0G6r.0"
+    shell: /bin/bash
+    append: yes
+
+- name: Allow 'satrexec' user to have passwordless sudo
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    line: 'satrexec ALL=(ALL) NOPASSWD:ALL'

@@ -49,9 +49,200 @@
     state: reloaded
 
 - name: Get default password Foreman
-  ansible.builtin.shell: grep -i foreman::initial_admin_password /var/log/foreman-installer/katello.log | grep value | cut -d '"' -f4
+  ansible.builtin.shell: grep -i foreman::initial_admin_password /var/log/foreman-installer/katello.log | grep value | cut -d '"' -f4 | xargs
   register: foreman_password
+
+- name: "Add lifecycle environment"
+  theforeman.foreman.lifecycle_environment:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item.name }}"
+    label: "{{ item.label }}"
+    organization: "Default Organization"
+    prior: "{{ item.prior }}"
+    description: "The production environment"
+    state: "present"
+  loop:
+    - { name: "Development", label: "Development", prior: "Library" }
+    - { name: "Homologation", label: "Homologation", prior: "Development" }
+    - { name: "Production", label: "Production", prior: "Homologation" }
+
+- name: "Create or update weekly RCEL sync plan"
+  theforeman.foreman.sync_plan:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item }}"
+    organization: "Default Organization"
+    interval: "weekly"
+    enabled: false
+    sync_date: "2024-09-20 03:00:00 UTC"
+    state: present
+  loop:
+    - "Weekly - Upstream - RCEL"
+
+- name: "Create RCEL product with a sync plan"
+  theforeman.foreman.product:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "Rocky Enterprise Linux for x86_64"
+    label: "Rocky_Enterprise_Linux_for_x86_64"
+    organization: "Default Organization"
+    sync_plan: "Weekly - Upstream - RCEL"
+    state: present
+
+- name: "Create repository"
+  theforeman.foreman.repository:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item.name }}"
+    label: "{{ item.label }}"
+    arch: "x86_64"
+    state: present
+    content_type: "yum"
+    product: "Rocky Enterprise Linux for x86_64"
+    organization: "Default Organization"
+    url: "{{ item.url }}"
+    mirroring_policy: "mirror_complete"
+    download_policy: immediate
+  loop: 
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/8/AppStream/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/9/extras/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/8/extras/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/9/HighAvailability/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/8/HighAvailability/x86_64/os/"}
+
+- name: "Sync repository"
+  theforeman.foreman.repository_sync:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    repository: "{{ item }}"
+    product: "Rocky Enterprise Linux for x86_64"
+    organization: "Default Organization"
+  loop:
+    - "Rocky Enterprise Linux 9 for x86_64 - AppStream"
+    - "Rocky Enterprise Linux 8 for x86_64 - AppStream"
+    - "Rocky Enterprise Linux 9 for x86_64 - BaseOS"
+    - "Rocky Enterprise Linux 8 for x86_64 - BaseOS"
+    - "Rocky Enterprise Linux 9 for x86_64 - Extras"
+    - "Rocky Enterprise Linux 8 for x86_64 - Extras"
+    - "Rocky Enterprise Linux 9 for x86_64 - HighAvailability"
+    - "Rocky Enterprise Linux 8 for x86_64 - HighAvailability"
+
+- name: "Create content view"
+  theforeman.foreman.content_view:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item.name }}"
+    organization: "Default Organization"
+    repositories: "{{ item.repositories }}"
+  loop:
+    - name: "CV_RCEL9"
+      repositories:
+        - name: "Rocky Enterprise Linux 9 for x86_64 - AppStream"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 9 for x86_64 - BaseOS"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 9 for x86_64 - Extras"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability"
+          product: "Rocky Enterprise Linux for x86_64" 
+    - name: "CV_RCEL8"
+      repositories:
+        - name: "Rocky Enterprise Linux 8 for x86_64 - AppStream"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 8 for x86_64 - BaseOS"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 8 for x86_64 - Extras"
+          product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability"
+          product: "Rocky Enterprise Linux for x86_64"
+
+- name: "Publish a content view and promote that version"
+  theforeman.foreman.content_view_version:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    content_view: "{{ item }}"
+    organization: "Default Organization"
+    lifecycle_environments:
+      - Library
+      - Development
+      - Homologation
+      - Production
+  loop:
+    - "CV_RCEL9"
+    - "CV_RCEL8"
+
+- name: "Create host collections"
+  theforeman.foreman.host_collection:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item }}"
+    organization: "Default Organization"
+    state: present
+  loop:
+    - "HC_RCEL9"
+    - "HC_RCEL8"
+
+- name: "Update SSH User for remote executations"
+  theforeman.foreman.setting:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "remote_execution_ssh_user"
+    value: "satrexec"
+
+- name: "Create client activation key"
+  theforeman.foreman.activation_key:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item.name }}"
+    organization: "Default Organization"
+    lifecycle_environment: "{{ item.environment }}"
+    content_view: "{{ item.content_view }}"
+    content_overrides: 
+      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_AppStream"
+        override: enabled
+      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_BaseOS"
+        override: enabled
+      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_Extras"
+        override: enabled
+      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_HighAvailability"
+        override: enabled
+    auto_attach: true
+  loop:
+    - { name: "DEV_RCEL8", environment: "Development", content_view: "CV_RCEL8", el_version: 8 }
+    - { name: "DEV_RCEL9", environment: "Development", content_view: "CV_RCEL9", el_version: 9 }
+    - { name: "HML_RCEL8", environment: "Homologation", content_view: "CV_RCEL8", el_version: 8 }
+    - { name: "HML_RCEL9", environment: "Homologation", content_view: "CV_RCEL9", el_version: 9 }
+    - { name: "PROD_RCEL8", environment: "Production", content_view: "CV_RCEL8", el_version: 8 }
+    - { name: "PROD_RCEL9", environment: "Production", content_view: "CV_RCEL9", el_version: 9 }
 
 - name: Show default password Foreman
   ansible.builtin.debug:
     msg: "{{ foreman_password.stdout }}"
+
+- name: Change password
+  theforeman.foreman.user:
+    name: admin
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    username: "admin"
+    user_password: "{{ admin_password }}"
+
+- name: Copy ssh key for remote access for ansible executations 
+  ansible.builtin.shell: "sshpass -p {{ satrexec_password }} ssh-copy-id -o StrictHostKeyChecking=no -i /usr/share/foreman-proxy/.ssh/id_rsa_foreman_proxy.pub satrexec@{{ item }} >/dev/null 2>&1"
+  args:
+    executable: /bin/bash
+  loop: "{{ groups['subscription'] }}"

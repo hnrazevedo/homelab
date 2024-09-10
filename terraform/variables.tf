@@ -4,7 +4,9 @@ variable "pm_auth_password" {}
 variable "pm_log_enable" {}
 variable "pm_log_file" {}
 variable "pm_debug" {}
-variable "ssh_key" {}
+variable "ssh_key" {
+  type = list(string)
+}
 
 variable "qemu_config" {
   type = list(object({
@@ -12,6 +14,8 @@ variable "qemu_config" {
     vmid     = number
     memory   = number
     sockets  = number
+    root_disk= number
+    onboot   = bool
     cores    = number
     ip0      = string
     node     = string

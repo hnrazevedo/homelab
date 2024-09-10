@@ -43,7 +43,7 @@
 
 - name: Get default root password
   ansible.builtin.shell:
-    cmd: "grep \"Password:\" /etc/gitlab/config/initial_root_password | cut -d \":\" -f2"
+    cmd: "grep -i password: /etc/gitlab/config/initial_root_password | cut -d : -f2"
     executable: /bin/bash
   register: root_password
 

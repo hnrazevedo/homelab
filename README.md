@@ -81,4 +81,3 @@ Na m√°quina host, execute o terraform por meio de um container e realize a cria√
 /app/terraform # terraform plan -var-file=.env
 /app/terraform # terraform apply -var-file=.env -auto-approve
 ```
-

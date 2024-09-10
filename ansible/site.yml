@@ -1,3 +1,4 @@
+---
 - name: Setup internal DNS server
   become: true
   hosts: ns
@@ -39,3 +40,9 @@
   hosts: gitlab
   roles:
     - gitlab
+
+- name: Register Foreman
+  become: true
+  hosts: subscription
+  roles:
+    - subscription

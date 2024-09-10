@@ -1,1 +1,4 @@
 ---
+server_url: "https://foreman.domain.local"
+admin_password: "changeme"
+satrexec_password: "changeme"
