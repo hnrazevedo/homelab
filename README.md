@@ -75,7 +75,7 @@ Na mÃ¡quina host, execute o terraform por meio de um container e realize a criaÃ
 ```sh
 # podman container run --rm --network=host -v $PWD:/app -w /app -it --entrypoint sh terraform-ansible
 /app # ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -N ""
-/app # echo ssh_key=\"$(cat /root/.ssh/id_rsa.pub)\" >> /app/terraform/.env
+/app # echo ssh_key=[\"$(cat /root/.ssh/id_rsa.pub)\"] >> /app/terraform/.env
 /app # cd terraform
 /app/terraform # terraform init
 /app/terraform # terraform plan -var-file=.env
