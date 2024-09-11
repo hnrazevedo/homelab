@@ -41,12 +41,11 @@
     daemon_reload: true
     name: container-gitlab
 
-- name: Get default root password
-  ansible.builtin.shell:
-    cmd: "grep -i password: /etc/gitlab/config/initial_root_password | cut -d : -f2"
-    executable: /bin/bash
-  register: root_password
+- name: Pause for 2 minutes for container finished startup
+  ansible.builtin.pause:
+    minutes: 2
 
-- name: Show default root password
-  ansible.builtin.debug:
-    msg: "{{ root_password.stdout }}"
+- name: Update root password
+  containers.podman.podman_container_exec:
+    name: gitlab
+    command: "gitlab-rails runner -e production \"user = user = User.find(1); user.password = user.password_confirmation = '{{ password }}'; user.save!\""

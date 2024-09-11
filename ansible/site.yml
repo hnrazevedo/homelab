@@ -9,7 +9,7 @@
   become: true
   hosts: servers
   roles:
-    - servers
+    - common
 
 - name: Setup PI-Hole server
   become: true
@@ -23,12 +23,6 @@
   roles:
     - idm
 
-- name: Setup Foreman server
-  become: true
-  hosts: foreman
-  roles:
-    - foreman
-
 - name: Setup AWX server
   become: true
   hosts: awx
@@ -40,6 +34,12 @@
   hosts: gitlab
   roles:
     - gitlab
+
+- name: Setup Foreman server
+  become: true
+  hosts: foreman
+  roles:
+    - foreman
 
 - name: Register Foreman
   become: true

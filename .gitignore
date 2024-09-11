@@ -1,8 +1,10 @@
 terraform/.env
 terraform/.terraform
 terraform/.terraform.lock.hcl
+terraform/.terraform.tfstate.lock.info
 terraform/terraform.tfstate.backup
 terraform/terraform.tfstate
 terraform/*.log
 /ansible/inventory/hosts
+/ansible/test.yml
 /ansible/roles/*/vars/main.yml

@@ -12,7 +12,7 @@
   ansible.builtin.shell: "rpm -Uvh http://{{ foreman_server }}/pub/katello-ca-consumer-latest.noarch.rpm"
   args:
     executable: /bin/bash
-  when: "katello-ca-consumer-{{ foreman_server }} not in ansible_facts.packages"
+  when: "'katello-ca-consumer-{{ foreman_server }}' not in ansible_facts.packages"
         
 - name: Register with activationkey 
   community.general.redhat_subscription:

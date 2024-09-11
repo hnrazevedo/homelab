@@ -106,16 +106,12 @@
     executable: /bin/bash
   register: default_password_awx
 
-- name: Show default password 
-  ansible.builtin.debug:
-    msg: "{{ default_password_awx.stdout }}"
-
 - name: Return default port
   ansible.builtin.shell: 
-    cmd: "kubectl get services -n awx | grep 80 | awk '{print $5}' | cut -d \":\" -f2"
+    cmd: "kubectl get services -n awx | grep 80 | awk '{print $5}' | cut -d \":\" -f2 | xargs"
     executable: /bin/bash
   register: default_port_awx
 
-- name: Show default port 
+- name: Show default values 
   ansible.builtin.debug:
-    msg: "{{ default_port_awx.stdout }}"
+    msg: "Port:{{ default_port_awx.stdout }} - Password:{{ default_password_awx.stdout }}"

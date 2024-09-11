@@ -10,9 +10,9 @@
 - name: Install packages 2/3
   ansible.builtin.dnf:
     name:
-      - "https://yum.theforeman.org/releases/3.10/el9/x86_64/foreman-release.rpm"
+      - "https://yum.theforeman.org/releases/3.12/el9/x86_64/foreman-release.rpm"
       - "https://yum.puppet.com/puppet7-release-el-9.noarch.rpm"
-      - "https://yum.theforeman.org/katello/4.12/katello/el9/x86_64/katello-repos-latest.rpm"
+      - "https://yum.theforeman.org/katello/4.14/katello/el9/x86_64/katello-repos-latest.rpm"
     disable_gpg_check: true
 
 - name: Install packages 3/3
@@ -82,6 +82,19 @@
   loop:
     - "Weekly - Upstream - RCEL"
 
+- name: "Create katello client GPG key"
+  theforeman.foreman.content_credential:
+    username: "admin"
+    password: "{{ foreman_password.stdout }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item.name }}"
+    content_type: gpg_key
+    organization: "Default Organization"
+    content: "{{ lookup('ansible.builtin.url', item.url ) | replace(',', '\n') }}"
+  loop:
+    - { name: "RPM-GPG-KEY-Rocky-8", url: "https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-8"}
+    - { name: "RPM-GPG-KEY-Rocky-9", url: "https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-9"}
+
 - name: "Create RCEL product with a sync plan"
   theforeman.foreman.product:
     username: "admin"
@@ -108,15 +121,16 @@
     url: "{{ item.url }}"
     mirroring_policy: "mirror_complete"
     download_policy: immediate
+    gpg_key: "{{ item.gpg_key }}"
   loop: 
-    - { name: "Rocky Enterprise Linux 9 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 8 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/8/AppStream/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 9 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 8 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 9 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/9/extras/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 8 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/8/extras/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/9/HighAvailability/x86_64/os/"}
-    - { name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/8/HighAvailability/x86_64/os/"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-9"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - AppStream", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_AppStream" , url: "https://dl.rockylinux.org/pub/rocky/8/AppStream/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-9"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - BaseOS", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_BaseOS" , url: "https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/9/extras/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-9"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/8/extras/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/9/HighAvailability/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-9"}
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/8/HighAvailability/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
 
 - name: "Sync repository"
   theforeman.foreman.repository_sync:
