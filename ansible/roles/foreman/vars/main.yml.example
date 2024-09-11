@@ -1,4 +1,6 @@
 ---
 server_url: "https://foreman.domain.local"
 admin_password: "changeme"
+admin_timezone: "Brasilia"
+admin_locale: "en"
 satrexec_password: "changeme"

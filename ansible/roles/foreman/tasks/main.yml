@@ -253,6 +253,8 @@
     password: "{{ foreman_password.stdout }}"
     server_url: "{{ server_url }}"
     username: "admin"
+    locale: "{{ admin_locale }}"
+    timezone: "{{ admin_timezone }}"
     user_password: "{{ admin_password }}"
 
 - name: Copy ssh key for remote access for ansible executations 
