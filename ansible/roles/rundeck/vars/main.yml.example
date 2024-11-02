@@ -1,0 +1,5 @@
+---
+db_database: change_me
+db_username: change_me
+db_password: change_me
+fqdn: rundeck.domain.local

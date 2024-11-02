@@ -12,6 +12,9 @@ RUN apk update && \
 # Instalar Ansible
 RUN pip3 install ansible
 
+# Generate ssh key
+RUN ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -N ""
+
 # Configurar o diretório de trabalho
 WORKDIR /app
 

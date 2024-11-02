@@ -1,9 +1,15 @@
 ---
+- name: Wait startup Servers
+  become: true
+  hosts: localhost
+  roles: 
+    - initial
+
 - name: Setup internal DNS server
   become: true
-  hosts: ns
-  roles:
-    - bind
+  hosts: domain
+  roles: 
+    - domain
 
 - name: Update packages and timezone
   become: true
@@ -35,11 +41,23 @@
   roles:
     - gitlab
 
+- name: Setup Rundeck server
+  become: true
+  hosts: rundeck
+  roles:
+    - rundeck
+
 - name: Setup Foreman server
   become: true
   hosts: foreman
   roles:
     - foreman
+
+- name: Setup admx
+  become: true
+  hosts: admx
+  roles:
+    - admx
 
 - name: Register Foreman
   become: true

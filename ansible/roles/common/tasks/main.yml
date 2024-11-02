@@ -2,20 +2,38 @@
 - name: Set timezone
   ansible.builtin.command: "timedatectl set-timezone {{ timezone }}"
 
-- name: Verify if cloud-init started update packages
-  ansible.builtin.command: "pgrep -f '(yum|dnf)'"
-  register: yum_dnf_process
-  until: yum_dnf_process.rc != 0
-  retries: 20
-  delay: 30
-  ignore_errors: true
-
 - name: Update packages
   ansible.builtin.dnf:
     name: "*"
     state: latest
     update_cache: yes
   ignore_errors: true
+  retries: 3
+  delay: 5
+
+- name: Install extra repo
+  ansible.builtin.dnf:
+    name: 
+      - epel-release
+    state: present
+
+- name: Install default packages
+  ansible.builtin.dnf:
+    name: 
+      - git
+      - curl
+      - vim
+      - wget
+      - net-tools
+      - openssh-server
+      - firewalld
+    state: present
+
+- name: Enable firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: restarted
+    enabled: true
 
 - name: Allow access via ssh by authentication
   ansible.builtin.lineinfile:
@@ -27,10 +45,18 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+  retries: 3
+  delay: 5
+
+- name: Ensure group "satrexec" exists
+  ansible.builtin.group:
+    name: satrexec
+    state: present
 
 - name: Add the user 'satrexec' for remote executations
   ansible.builtin.user:
     name: satrexec
+    groups: satrexec
     password: "$6$kQ89wzxODuY6DD76$vfN6onXW8z5i0rY1FO1IaJ5cCkv/jHJcX96YE/waOp2Za8rYo1ffm0PtI6NNDhFHixvzzz0u9GUZNNdD0G6r.0"
     shell: /bin/bash
     append: yes

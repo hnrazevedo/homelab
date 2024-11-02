@@ -4,6 +4,23 @@
     cmd: "echo \"nameserver {{ dns_gateway }}\" > /etc/resolv.conf "
     executable: /bin/bash
 
+- name: Install Firewalld
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Enable and start firewalld service
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Permit traffic in default zone on port 53/udp
+  ansible.posix.firewalld:
+    port: 53/udp
+    permanent: true
+    state: enabled
+
 - name: Install bind
   ansible.builtin.dnf:
     name: bind
@@ -61,9 +78,11 @@
     - { path: "/etc/named.conf", regexp: "listen_ip_change", replace: "{{ listen_ip }}" }
     - { path: "/etc/named.conf", regexp: "interface_change", replace: "{{ interface }}" }
     - { path: "/etc/named.conf", regexp: "forwarders_change", replace: "{{ forwarders }}" }
+    - { path: "/var/named/{{ localdomain }}.zone", regexp: "server_name_change", replace: "{{ server_name }}" }
     - { path: "/var/named/{{ localdomain }}.zone", regexp: "localdomain_change", replace: "{{ localdomain }}" }
     - { path: "/var/named/{{ localdomain }}.zone", regexp: "listen_ip_change", replace: "{{ listen_ip }}" }
     - { path: "/var/named/{{ localdomain }}.rev.zone", regexp: "localdomain_change", replace: "{{ localdomain }}" }
+    - { path: "/var/named/{{ localdomain }}.rev.zone", regexp: "server_name_change", replace: "{{ server_name }}" }
 
 - name: Register DNS
   ansible.builtin.lineinfile:

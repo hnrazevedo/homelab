@@ -1,0 +1,89 @@
+---
+
+- name: Add rundeck repo
+  ansible.builtin.yum_repository:
+    name: rundeck
+    baseurl: https://packages.rundeck.com/pagerduty/rundeck/rpm_any/rpm_any/$basearch
+    gpgcheck: no
+    enabled: yes
+    gpgkey: https://packages.rundeck.com/pagerduty/rundeck/gpgkey
+    description: rundeck repo
+
+- name: Install java
+  ansible.builtin.dnf:
+    name: java-11-openjdk-devel
+    state: present
+
+- name: Install o Rundeck
+  ansible.builtin.dnf:
+    name: rundeck
+    state: present
+
+- name: Install mariadb-server
+  ansible.builtin.dnf:
+    name: mariadb-server
+    state: present
+
+- name: Enable and start mariadb service
+  ansible.builtin.service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Configure database  
+  ansible.builtin.command:
+    executable: /bin/bash
+    cmd: "{{ item }}"
+  loop:
+    - mysql -u root --execute="CREATE DATABASE IF NOT EXISTS {{ db_database }};"
+    - mysql -u root --execute="CREATE USER IF NOT EXISTS '{{ db_username }}'@'localhost' IDENTIFIED BY '{{ db_password }}';"
+    - mysql -u root --execute="GRANT ALL PRIVILEGES ON {{ db_database }}.* TO '{{ db_username }}'@'localhost'; FLUSH PRIVILEGES;"
+
+- name: Remove default database config
+  ansible.builtin.lineinfile:
+    path: /etc/rundeck/rundeck-config.properties
+    state: absent
+    regexp: '^dataSource'
+
+- name: Configure database in rundeck 
+  ansible.builtin.lineinfile:
+    path: /etc/rundeck/rundeck-config.properties
+    state: present
+    line: "{{ item }}"
+  loop:
+    - "dataSource.driverClassName = org.mariadb.jdbc.Driver"
+    - "dataSource.url = jdbc:mysql://localhost/{{ db_database }}?autoReconnect=true&useSSL=false"
+    - "dataSource.username = {{ db_username }}"
+    - "dataSource.password = {{ db_password }}"
+
+- name: Configure server URL
+  ansible.builtin.lineinfile:
+    path: /etc/rundeck/rundeck-config.properties
+    regexp: '^grails\.serverURL'
+    line: "grails.serverURL=http://{{ fqdn }}:4440"
+
+- name: Enable and start rundeckd service
+  ansible.builtin.service:
+    name: rundeckd
+    enabled: yes
+    state: started
+
+- name: Permit traffic in default zone on port 4440/tcp 
+  ansible.posix.firewalld:
+    port: 4440/tcp
+    permanent: true
+    state: enabled
+
+- name: Permit traffic in default zone on service http(s)
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop:
+    - http
+    - https
+
+- name: Restart firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: restarted

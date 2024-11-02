@@ -1,6 +1,25 @@
 ---
 server_url: "https://foreman.domain.local"
-admin_password: "changeme"
-admin_timezone: "Brasilia"
-admin_locale: "en"
 satrexec_password: "changeme"
+
+plugin_ansible_enable: true
+plugin_puppet_enable: true
+plugin_bootdisk_enable: true
+plugin_discovery_enable: true
+plugin_webhooks_enable: true
+plugin_tasks_enable: true
+plugin_openscap_enable: true
+plugin_remoteexecution_enable: true
+plugin_virtwhoconfigure_enable: true
+plugin_templates_enable: true
+plugin_vault_enable: false
+
+initial_admin_email: "admin@localdomain.com"
+initial_admin_username: "admin"
+initial_admin_password: "admin"
+initial_admin_firstname: "First"
+initial_admin_lastname: "Last"
+initial_admin_timezone: "Brasilia"
+initial_admin_locate: "en"
+initial_location: "Default Location"
+initial_organization: "Default Organization"

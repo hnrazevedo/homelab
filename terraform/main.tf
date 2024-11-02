@@ -38,9 +38,9 @@ resource "proxmox_vm_qemu" "servers" {
 }
 
 resource "null_resource" "run_ansible" {
-  provisioner "local-exec" {
-    command = "sleep 120 && export ANSIBLE_SSH_ARGS='-o StrictHostKeyChecking=no' && ansible-playbook -i /app/ansible/inventory/hosts /app/ansible/site.yml"
-  }
+    provisioner "local-exec" {
+        command = "export ANSIBLE_SSH_ARGS='-o StrictHostKeyChecking=no' && ansible-playbook -i /app/ansible/inventory/hosts /app/ansible/site.yml"
+    }
 
-  depends_on = [proxmox_vm_qemu.servers]
+    depends_on = [proxmox_vm_qemu.servers]
 }

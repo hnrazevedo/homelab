@@ -1,0 +1,4 @@
+:foreman:
+  :host: "host_change"
+  :username: "username_change"
+  :password: "password_change"

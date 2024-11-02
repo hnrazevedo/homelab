@@ -4,15 +4,13 @@
     name:
       - "@base"
       - "@core"
-      - "epel-release"
-      - "firewalld"
 
 - name: Install packages 2/3
   ansible.builtin.dnf:
     name:
-      - "https://yum.theforeman.org/releases/3.12/el9/x86_64/foreman-release.rpm"
-      - "https://yum.puppet.com/puppet7-release-el-9.noarch.rpm"
-      - "https://yum.theforeman.org/katello/4.14/katello/el9/x86_64/katello-repos-latest.rpm"
+      - "https://yum.theforeman.org/releases/nightly/el9/x86_64/foreman-release.rpm"
+      - "https://yum.puppet.com/puppet8-release-el-9.noarch.rpm"
+      - "https://yum.theforeman.org/katello/nightly/katello/el9/x86_64/katello-repos-latest.rpm"
     disable_gpg_check: true
 
 - name: Install packages 3/3
@@ -20,18 +18,37 @@
     name:
       - "puppet-agent"
       - "foreman-installer-katello"
-  
-- name: Enable Firewalld
-  ansible.builtin.service:
-    name: firewalld
-    state: started
-    enabled: true
 
 - name: Install foreman with katello scenario
-  ansible.builtin.command: "{{ item }}"
-  loop:
-    - foreman-installer --scenario katello --tuning development --foreman-proxy-bind-host '*'
-    - foreman-installer --enable-foreman-plugin-ansible --enable-foreman-proxy-plugin-ansible
+  ansible.builtin.command: >-
+    foreman-installer \
+    --scenario katello \
+    --tuning development \
+    --foreman-proxy-bind-host '*' \
+    {% if initial_admin_email != '' %} --foreman-initial-admin-email={{ initial_admin_email }} {% endif %} \
+    {% if initial_admin_username != '' %} --foreman-initial-admin-username={{ initial_admin_username }} {% endif %} \
+    {% if initial_admin_password != '' %} --foreman-initial-admin-password={{ initial_admin_password }} {% endif %} \
+    {% if initial_admin_firstname != '' %} --foreman-initial-admin-first-name={{ initial_admin_firstname }} {% endif %} \
+    {% if initial_admin_lastname != '' %} --foreman-initial-admin-last-name={{ initial_admin_lastname }} {% endif %} \
+    {% if initial_admin_timezone != '' %} --foreman-initial-admin-timezone={{ initial_admin_timezone }} {% endif %} \
+    {% if initial_admin_locale != '' %} --foreman-initial-admin-locale={{ initial_admin_locale }} {% endif %} \
+    {% if initial_location != '' %} --foreman-initial-location={{ initial_location }} {% endif %} \
+    {% if initial_organization != '' %} --foreman-initial-organization={{ initial_organization }} {% endif %} \
+    {% if plugin_ansible_enable %} --enable-foreman-plugin-ansible --enable-foreman-proxy-plugin-ansible {% endif %} \
+    {% if plugin_puppet_enable %} --enable-foreman-plugin-puppet {% endif %} \
+    {% if plugin_bootdisk_enable %} --enable-foreman-plugin-bootdisk {% endif %} \
+    {% if plugin_discovery_enable %} --enable-foreman-plugin-discovery {% endif %} \
+    {% if plugin_webhooks_enable %} --enable-foreman-plugin-webhooks {% endif %} \
+    {% if plugin_tasks_enable %} --enable-foreman-plugin-tasks {% endif %} \
+    {% if plugin_openscap_enable %} --enable-foreman-plugin-openscap {% endif %} \
+    {% if plugin_remoteexecution_enable %} --enable-foreman-plugin-remote-execution {% endif %} \
+    {% if plugin_virtwhoconfigure_enable %} --enable-foreman-plugin-virt-who-configure {% endif %} \
+    {% if plugin_templates_enable %} --enable-foreman-plugin-templates {% endif %} \
+    {% if plugin_vault_enable %} --enable-foreman-plugin-vault {% endif %} 
+
+- name: Get default password Foreman
+  ansible.builtin.shell: grep -i foreman::initial_admin_password /var/log/foreman-installer/katello.log | grep value | cut -d '"' -f4 | xargs
+  register: foreman_password
 
 - name: Permit HTTPS/HTTP traffic
   ansible.posix.firewalld:
@@ -48,18 +65,26 @@
     name: firewalld
     state: reloaded
 
-- name: Get default password Foreman
-  ansible.builtin.shell: grep -i foreman::initial_admin_password /var/log/foreman-installer/katello.log | grep value | cut -d '"' -f4 | xargs
-  register: foreman_password
+- name: "Create host collections"
+  theforeman.foreman.host_collection:
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
+    server_url: "{{ server_url }}"
+    name: "{{ item }}"
+    organization: "{{ initial_organization | default('Default Organization') }}"
+    state: present
+  loop:
+    - "HC_RCEL9"
+    - "HC_RCEL8"
 
 - name: "Add lifecycle environment"
   theforeman.foreman.lifecycle_environment:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item.name }}"
     label: "{{ item.label }}"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     prior: "{{ item.prior }}"
     description: "The production environment"
     state: "present"
@@ -70,13 +95,13 @@
 
 - name: "Create or update weekly RCEL sync plan"
   theforeman.foreman.sync_plan:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item }}"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     interval: "weekly"
-    enabled: false
+    enabled: true
     sync_date: "2024-09-20 03:00:00 UTC"
     state: present
   loop:
@@ -84,32 +109,33 @@
 
 - name: "Create katello client GPG key"
   theforeman.foreman.content_credential:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item.name }}"
     content_type: gpg_key
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     content: "{{ lookup('ansible.builtin.url', item.url ) | replace(',', '\n') }}"
   loop:
     - { name: "RPM-GPG-KEY-Rocky-8", url: "https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-8"}
     - { name: "RPM-GPG-KEY-Rocky-9", url: "https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-9"}
+    - { name: "RPM-GPG-KEY-Puppet", url: "https://yum.puppet.com/RPM-GPG-KEY-puppet"}
 
 - name: "Create RCEL product with a sync plan"
   theforeman.foreman.product:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "Rocky Enterprise Linux for x86_64"
     label: "Rocky_Enterprise_Linux_for_x86_64"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     sync_plan: "Weekly - Upstream - RCEL"
     state: present
 
 - name: "Create repository"
   theforeman.foreman.repository:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item.name }}"
     label: "{{ item.label }}"
@@ -117,7 +143,7 @@
     state: present
     content_type: "yum"
     product: "Rocky Enterprise Linux for x86_64"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     url: "{{ item.url }}"
     mirroring_policy: "mirror_complete"
     download_policy: immediate
@@ -131,15 +157,17 @@
     - { name: "Rocky Enterprise Linux 8 for x86_64 - Extras", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_Extras" , url: "https://dl.rockylinux.org/pub/rocky/8/extras/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
     - { name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/9/HighAvailability/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-9"}
     - { name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_HighAvailability" , url: "https://dl.rockylinux.org/pub/rocky/8/HighAvailability/x86_64/os/", gpg_key: "RPM-GPG-KEY-Rocky-8"}
+    - { name: "Rocky Enterprise Linux 9 for x86_64 - Puppet", label: "Rocky_Enterprise_Linux_9_for_x86_64_-_Puppet" , url: "https://yum.puppet.com/puppet7/el/9/x86_64/", gpg_key: "RPM-GPG-KEY-Puppet" }
+    - { name: "Rocky Enterprise Linux 8 for x86_64 - Puppet", label: "Rocky_Enterprise_Linux_8_for_x86_64_-_Puppet" , url: "https://yum.puppet.com/puppet7/el/8/x86_64/", gpg_key: "RPM-GPG-KEY-Puppet" }
 
 - name: "Sync repository"
   theforeman.foreman.repository_sync:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     repository: "{{ item }}"
     product: "Rocky Enterprise Linux for x86_64"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
   loop:
     - "Rocky Enterprise Linux 9 for x86_64 - AppStream"
     - "Rocky Enterprise Linux 8 for x86_64 - AppStream"
@@ -149,14 +177,16 @@
     - "Rocky Enterprise Linux 8 for x86_64 - Extras"
     - "Rocky Enterprise Linux 9 for x86_64 - HighAvailability"
     - "Rocky Enterprise Linux 8 for x86_64 - HighAvailability"
+    - "Rocky Enterprise Linux 9 for x86_64 - Puppet"
+    - "Rocky Enterprise Linux 8 for x86_64 - Puppet"
 
 - name: "Create content view"
   theforeman.foreman.content_view:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item.name }}"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     repositories: "{{ item.repositories }}"
   loop:
     - name: "CV_RCEL9"
@@ -169,6 +199,8 @@
           product: "Rocky Enterprise Linux for x86_64" 
         - name: "Rocky Enterprise Linux 9 for x86_64 - HighAvailability"
           product: "Rocky Enterprise Linux for x86_64" 
+        - name: "Rocky Enterprise Linux 9 for x86_64 - Puppet"
+          product: "Rocky Enterprise Linux for x86_64" 
     - name: "CV_RCEL8"
       repositories:
         - name: "Rocky Enterprise Linux 8 for x86_64 - AppStream"
@@ -179,14 +211,16 @@
           product: "Rocky Enterprise Linux for x86_64" 
         - name: "Rocky Enterprise Linux 8 for x86_64 - HighAvailability"
           product: "Rocky Enterprise Linux for x86_64"
+        - name: "Rocky Enterprise Linux 8 for x86_64 - Puppet"
+          product: "Rocky Enterprise Linux for x86_64" 
 
 - name: "Publish a content view and promote that version"
   theforeman.foreman.content_view_version:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     content_view: "{{ item }}"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
     lifecycle_environments:
       - Library
       - Development
@@ -196,66 +230,48 @@
     - "CV_RCEL9"
     - "CV_RCEL8"
 
-- name: "Create host collections"
-  theforeman.foreman.host_collection:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
-    server_url: "{{ server_url }}"
-    name: "{{ item }}"
-    organization: "Default Organization"
-    state: present
-  loop:
-    - "HC_RCEL9"
-    - "HC_RCEL8"
-
 - name: "Update SSH User for remote executations"
   theforeman.foreman.setting:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "remote_execution_ssh_user"
     value: "satrexec"
 
 - name: "Create client activation key"
   theforeman.foreman.activation_key:
-    username: "admin"
-    password: "{{ foreman_password.stdout }}"
+    username: "{{ initial_admin_username | default('admin') }}"
+    password: "{{ initial_admin_password | default(foreman_password.stdout) }}"
     server_url: "{{ server_url }}"
     name: "{{ item.name }}"
-    organization: "Default Organization"
+    organization: "{{ initial_organization | default('Default Organization') }}"
+    host_collections: "{{ item.host_collection }}"
     lifecycle_environment: "{{ item.environment }}"
     content_view: "{{ item.content_view }}"
     content_overrides: 
-      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_AppStream"
+      - label: "{{ initial_organization | default('Default_Organization') | replace(' ','_') | replace('.','_') }}_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_AppStream"
         override: enabled
-      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_BaseOS"
+      - label: "{{ initial_organization | default('Default_Organization') | replace(' ','_') | replace('.','_') }}_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_BaseOS"
         override: enabled
-      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_Extras"
+      - label: "{{ initial_organization | default('Default_Organization') | replace(' ','_') | replace('.','_') }}_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_Extras"
         override: enabled
-      - label: "Default_Organization_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_HighAvailability"
+      - label: "{{ initial_organization | default('Default_Organization') | replace(' ','_') | replace('.','_') }}_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_HighAvailability"
+        override: enabled
+      - label: "{{ initial_organization | default('Default_Organization') | replace(' ','_') | replace('.','_') }}_Rocky_Enterprise_Linux_for_x86_64_Rocky_Enterprise_Linux_{{ item.el_version }}_for_x86_64_-_Puppet"
         override: enabled
     auto_attach: true
   loop:
-    - { name: "DEV_RCEL8", environment: "Development", content_view: "CV_RCEL8", el_version: 8 }
-    - { name: "DEV_RCEL9", environment: "Development", content_view: "CV_RCEL9", el_version: 9 }
-    - { name: "HML_RCEL8", environment: "Homologation", content_view: "CV_RCEL8", el_version: 8 }
-    - { name: "HML_RCEL9", environment: "Homologation", content_view: "CV_RCEL9", el_version: 9 }
-    - { name: "PROD_RCEL8", environment: "Production", content_view: "CV_RCEL8", el_version: 8 }
-    - { name: "PROD_RCEL9", environment: "Production", content_view: "CV_RCEL9", el_version: 9 }
+    - { name: "DEV_RCEL8", environment: "Development", content_view: "CV_RCEL8", el_version: 8, host_collection: "HC_RCEL8" }
+    - { name: "DEV_RCEL9", environment: "Development", content_view: "CV_RCEL9", el_version: 9, host_collection: "HC_RCEL9" }
+    - { name: "HML_RCEL8", environment: "Homologation", content_view: "CV_RCEL8", el_version: 8, host_collection: "HC_RCEL8" }
+    - { name: "HML_RCEL9", environment: "Homologation", content_view: "CV_RCEL9", el_version: 9, host_collection: "HC_RCEL9" }
+    - { name: "PROD_RCEL8", environment: "Production", content_view: "CV_RCEL8", el_version: 8, host_collection: "HC_RCEL8" }
+    - { name: "PROD_RCEL9", environment: "Production", content_view: "CV_RCEL9", el_version: 9, host_collection: "HC_RCEL9" }
 
 - name: Show default password Foreman
   ansible.builtin.debug:
-    msg: "{{ foreman_password.stdout }}"
+    msg: "{{ initial_admin_password }}"
 
-- name: Change password
-  theforeman.foreman.user:
-    name: admin
-    password: "{{ foreman_password.stdout }}"
-    server_url: "{{ server_url }}"
-    username: "admin"
-    locale: "{{ admin_locale }}"
-    timezone: "{{ admin_timezone }}"
-    user_password: "{{ admin_password }}"
 
 - name: Copy ssh key for remote access for ansible executations 
   ansible.builtin.shell: "sshpass -p {{ satrexec_password }} ssh-copy-id -o StrictHostKeyChecking=no -i /usr/share/foreman-proxy/.ssh/id_rsa_foreman_proxy.pub satrexec@{{ item }} >/dev/null 2>&1"

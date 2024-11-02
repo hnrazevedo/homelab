@@ -1,2 +1,4 @@
 ---
 foreman_server: "foreman.domain.local"
+foreman_username: "admin"
+foreman_password: "admin"

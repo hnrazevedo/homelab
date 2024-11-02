@@ -13,15 +13,27 @@
     mode: '0644'
     force: true
 
+- name: Permit HTTPS/HTTP traffic
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    zone: public
+    state: enabled
+  loop:
+    - http
+    - https
+    - ssh
+  ignore_errors: true
+
 - name: Replace the config container service
   ansible.builtin.replace:
     path: /etc/systemd/system/container-gitlab.service
     regexp: "{{ item.regex }}"
     replace: "{{ item.replace }}"
   loop:
-   - { regex: "http_port_change", replace: "{{ http_port }}" }
-   - { regex: "https_port_change", replace: "{{ https_port }}" }
-   - { regex: "ssh_port_change", replace: "{{ ssh_port }}" }
+    - { regex: "http_port_change", replace: "{{ http_port }}" }
+    - { regex: "https_port_change", replace: "{{ https_port }}" }
+    - { regex: "ssh_port_change", replace: "{{ ssh_port }}" }
 
 - name: Create volumes paths
   ansible.builtin.file:

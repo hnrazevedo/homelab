@@ -2,6 +2,7 @@
 apiVersion: awx.ansible.com/v1beta1
 kind: AWX
 metadata:
-  name: awx-demo
+  name: awx
 spec:
   service_type: nodeport
+  nodeport_port: 30060

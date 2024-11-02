@@ -1,21 +1,9 @@
 ---
-- name: Install extra repo
-  ansible.builtin.dnf:
-    name: 
-      - epel-release
-    state: present
-
 - name: Install packages
   ansible.builtin.dnf:
     name: 
-      - git
-      - curl
-      - vim
-      - wget
-      - openssh-server
       - make
       - ansible
-      - firewalld
     state: present
 
 - name: Disable firewalld
@@ -87,31 +75,56 @@
     mode: '0644'
     force: true
 
-- name: Pause for 2 minutes to deploy
-  ansible.builtin.pause:
-    minutes: 2
+- name: Wait init deploy
+  ansible.builtin.shell:
+    cmd: "kubectl get pods -n awx | wc -l"
+    executable: /bin/bash
+  register: deploy_init
+  until: deploy_init.stdout | int > 0
+  retries: 30
+  delay: 10
+
+- name: Wait finish deploy
+  ansible.builtin.shell:
+    cmd: "kubectl get pods -n awx --field-selector=status.phase=Running -o jsonpath='{.items[*].status.containerStatuses[].ready}' | grep false | wc -l"
+    executable: /bin/bash
+  register: deploy_finish
+  until: deploy_finish.stdout | int == 0
+  retries: 30
+  delay: 10
 
 - name: Apply kubectl
   ansible.builtin.shell: 
     cmd: "kubectl apply -f /root/awx-operator/awx.yml"
     executable: /bin/bash
 
-- name: Pause for 2 minutes to apply
-  ansible.builtin.pause:
-    minutes: 2
-
-- name: Return default password
-  ansible.builtin.shell: 
-    cmd: "kubectl get secret awx-demo-admin-password -o jsonpath=\"{.data.password}\" | base64 --decode ; echo"
+- name: Wait apply
+  ansible.builtin.shell:
+    cmd: "kubectl get pods -n awx -o jsonpath='{.items[*].status.containerStatuses[].name}' | grep 'migration-job' | grep 'awx-manager' | grep 'postgres' | grep 'awx-ee' | grep 'awx-rsyslog' | wc -l"
     executable: /bin/bash
-  register: default_password_awx
+  register: apply_finish
+  until: apply_finish.stdout | int == 1
+  delay: 30
+  retries: 10
 
-- name: Return default port
+- name: Get task pod name
   ansible.builtin.shell: 
-    cmd: "kubectl get services -n awx | grep 80 | awk '{print $5}' | cut -d \":\" -f2 | xargs"
+    cmd: "kubectl get pods | grep task | awk '{print $1}'"
     executable: /bin/bash
-  register: default_port_awx
+  register: taskpodname
 
-- name: Show default values 
-  ansible.builtin.debug:
-    msg: "Port:{{ default_port_awx.stdout }} - Password:{{ default_password_awx.stdout }}"
+- name: Wait containers
+  ansible.builtin.shell:
+    cmd: "kubectl get pod {{ taskpodname }} -n awx -o jsonpath='{.status.containerStatuses[*].ready}' | grep false | wc -l"
+    executable: /bin/bash
+  register: taskpod_finish
+  until: taskpod_finish.stdout | int == 0
+  retries: 30
+  delay: 10
+
+- name: Update default password
+  ansible.builtin.shell: 
+    cmd: "kubectl exec -ti {{ taskpodname.stdout }} -- awx-manage update_password --username=admin --password=\"{{ admin_password }}\""
+    executable: /bin/bash
+  retries: 30
+  delay: 10

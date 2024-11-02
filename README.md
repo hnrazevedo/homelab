@@ -9,7 +9,6 @@ Com este projeto é possível realizar o provisionamento e configuração dos se
 Bind, Pi-hole, IDM, Foreman e AWX.
 
 ## Preparando ambiente Proxmox para o Terraform
-
 Crie um usuário que será utilizado no Terraform para autênticação no servidor Proxmox
 ```sh
 # useradd -s /dev/null -d /dev/null -p pve terraform-prov@pve
@@ -22,7 +21,6 @@ Crie e atribua a função `TerraformProv` ao usuário criado
 ```
 
 ## Preparando Template para nodes
-
 No servidor PVE, baixe uma imagem cloud da distribuição desejada, exemplo Debian e configure uma VM para gerar o Template
 ```sh
 # cd /tmp
@@ -39,7 +37,6 @@ No servidor PVE, baixe uma imagem cloud da distribuição desejada, exemplo Debi
 # qm set 9000 --agent enabled=1
 # qm template 9000
 ```
-
 Defina um usuário e senha para autênticação e configure a chave SSH da máquina host no Cloud-init do template criado no Proxmox
 ```sh
 # qm set 9000 --ciuser rocky
@@ -48,7 +45,6 @@ Defina um usuário e senha para autênticação e configure a chave SSH da máqu
 ```
 
 ## Autênticação no Terraform
-
 Copie o arquivo .env.example para .env
 ```sh
 # cp .env.example .env
@@ -61,7 +57,6 @@ pm_auth_password=pve
 pm_log_enable=true
 pm_log_file=terraform-plugin-proxmox.log
 pm_debug=true
-
 ```
 
 ## Criando imagem de container Terraform com Ansible
@@ -70,11 +65,9 @@ podman build -t terraform-ansible .
 ```
 
 ## Provisionando ambiente com Terraform
-
 Na máquina host, execute o terraform por meio de um container e realize a criação do ambiente apontando o arquivo de variáveis: 
 ```sh
 # podman container run --rm --network=host -v $PWD:/app -w /app -it --entrypoint sh terraform-ansible
-/app # ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -N ""
 /app # echo ssh_key=[\"$(cat /root/.ssh/id_rsa.pub)\"] >> /app/terraform/.env
 /app # cd terraform
 /app/terraform # terraform init

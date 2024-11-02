@@ -35,4 +35,12 @@
   ansible.builtin.command: chmod +x /etc/rc.local
 
 - name: Install IPA Server
-  ansible.builtin.command: "ipa-server-install --ds-password={{ password }} --admin-password={{ password }} --ip-address={{ ip }} --domain={{ domain }} --realm={{ domain }} --hostname={{ fqdn }} --skip-mem-check -U"
+  ansible.builtin.command: >-
+    ipa-server-install \
+    --ds-password={{ password }} \ 
+    --admin-password={{ password }} \ 
+    --ip-address={{ ip }} \
+    --domain={{ domain }} \
+    --realm={{ domain }} \
+    --hostname={{ fqdn }} \
+    --skip-mem-check -U

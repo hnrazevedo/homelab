@@ -1,0 +1,67 @@
+---
+- name: Install packages 1/3
+  ansible.builtin.dnf:
+    name:
+      - "@base"
+      - "@core"
+
+- name: Install packages 2/3
+  ansible.builtin.dnf:
+    name:
+      - "https://yum.theforeman.org/releases/3.12/el9/x86_64/foreman-release.rpm"
+      - "https://yum.puppet.com/puppet7-release-el-9.noarch.rpm"
+      - "https://yum.theforeman.org/katello/4.14/katello/el9/x86_64/katello-repos-latest.rpm"
+    disable_gpg_check: true
+
+- name: Install packages 3/3
+  ansible.builtin.dnf:
+    name:
+      - "rubygem-hammer_cli-3.12.0-1.el9.noarch"
+      - "rubygem-hammer_cli_foreman-3.12.0-1.el9.noarch"
+      - "rubygem-hammer_cli_foreman_tasks-0.0.21-1.fm3_11.el9.noarch"
+      - "rubygem-hammer_cli_katello-1.14.3-1.el9.noarch"
+      - "rubygem-hammer_cli_foreman_remote_execution-0.3.0-1.el9.noarch"
+      - "cifs-utils"
+      - "ansible"
+
+- name: Create directory to config file hammer
+  ansible.builtin.file:
+    state: directory
+    path: /home/admin/.hammer
+    owner: admin
+    group: admin
+    mode: '0775'
+    force: true
+
+- name: Copy cli_config.yml - hammer
+  ansible.builtin.copy:
+    src: ../files/cli_config.yml
+    dest: /home/admin/.hammer/cli_config.yml
+    owner: admin
+    group: admin
+    mode: '0644'
+    force: true
+
+- name: Hammer replace config
+  ansible.builtin.replace:
+    path: "/home/admin/.hammer/cli_config.yml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop: 
+    - { regexp: "host_change", replace: "{{ host_hammer }}" }
+    - { regexp: "username_change", replace: "{{ username_hammer }}" }
+    - { regexp: "password_change", replace: "{{ password_hammer }}" }
+
+- name: Create mount point
+  ansible.builtin.file:
+    state: directory
+    path: "{{ mount_point_shared }}"
+    owner: admin
+    group: admin
+    mode: '0775'
+    force: true
+
+- name: Configure shared
+  ansible.builtin.lineinfile:
+    path: /home/admin/.bash_profile
+    line: "sudo mount {{ server_shared }} {{ mount_point_shared }} -o \"username={{ user_shared }},password={{ password_shared }},uid=$(id -u),gid=$(id -g)\""

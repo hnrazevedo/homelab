@@ -7,4 +7,5 @@ terraform/terraform.tfstate
 terraform/*.log
 /ansible/inventory/hosts
 /ansible/test.yml
+/ansible/roles/test
 /ansible/roles/*/vars/main.yml

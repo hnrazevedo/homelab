@@ -14,17 +14,24 @@
     executable: /bin/bash
   when: "'katello-ca-consumer-{{ foreman_server }}' not in ansible_facts.packages"
         
+- name: Get default organization
+  theforeman.foreman.organization_info:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "http://{{ foreman_server }}"
+  register: orgs
+
 - name: Register with activationkey 
   community.general.redhat_subscription:
     state: present
     activationkey: "HML_RCEL9"
-    org_id: "Default_Organization"
+    org_id: "{{ orgs.organizations[0].label }}"
     server_hostname: "{{ foreman_server }}"
     rhsm_baseurl: "http://{{ foreman_server }}/pulp/repos"
     force_register: true
     
 - name: Gather default repositories
-  ansible.builtin.shell: yum repolist enabled | egrep -v "Default_Organization|repo" | awk '{print $1}' | xargs
+  ansible.builtin.shell: "yum repolist enabled | egrep -v '{{ orgs.organizations[0].label }}|repo' | awk '{print $1}' | xargs"
   args:
     executable: /bin/bash
   register: default_repositories

@@ -1,0 +1,11 @@
+---
+- name: Verificar se todos os hosts estão acessíveis
+  ansible.builtin.wait_for:
+    state: present
+    port: 22
+    host: "{{ item }}"
+  loop: "{{ groups['servers'] }}"
+  register: result
+  until: result is succeeded
+  retries: 6
+  delay: 10
