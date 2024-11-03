@@ -1,17 +1,12 @@
 ---
-- name: Install podman
+- name: Install dependencies
   ansible.builtin.dnf:
-    name: podman
+    name: "{{ item }}"
     state: present
-
-- name: Copy container-gitlab.service
-  ansible.builtin.copy:
-    src: ../files/container-gitlab.service
-    dest: /etc/systemd/system/container-gitlab.service
-    owner: root
-    group: root
-    mode: '0644'
-    force: true
+  loop:
+    - policycoreutils 
+    - perl
+    - openssh-server
 
 - name: Permit HTTPS/HTTP traffic
   ansible.posix.firewalld:
@@ -25,39 +20,34 @@
     - ssh
   ignore_errors: true
 
-- name: Replace the config container service
-  ansible.builtin.replace:
-    path: /etc/systemd/system/container-gitlab.service
-    regexp: "{{ item.regex }}"
-    replace: "{{ item.replace }}"
-  loop:
-    - { regex: "http_port_change", replace: "{{ http_port }}" }
-    - { regex: "https_port_change", replace: "{{ https_port }}" }
-    - { regex: "ssh_port_change", replace: "{{ ssh_port }}" }
+- name: Restart firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: restarted
 
-- name: Create volumes paths
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: '0755'
-    force: true
-  loop:
-    - "/etc/gitlab/logs"
-    - "/etc/gitlab/data"
-    - "/etc/gitlab/config"
+- name: Install postfix
+  ansible.builtin.dnf:
+    name: postfix
+    state: present
 
-- name: Restart service container-gitlab
-  ansible.builtin.systemd_service:
-    enabled: true
-    state: started
-    daemon_reload: true
-    name: container-gitlab
+- name: Start and enabled postfix
+  ansible.builtin.service:
+    name: postfix
+    state: restarted
 
-- name: Pause for 2 minutes for container finished startup
-  ansible.builtin.pause:
-    minutes: 2
+- name: Install Repositorie Gitlab CE
+  ansible.builtin.shell:
+    cmd: curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | bash
+    executable: /bin/bash
+
+- name: Install GitLab CE
+  ansible.builtin.dnf:
+    name: gitlab-ce
+    state: present
+  environment:
+    EXTERNAL_URL: "https://{{ fqdn }}"
 
 - name: Update root password
-  containers.podman.podman_container_exec:
-    name: gitlab
-    command: "gitlab-rails runner -e production \"user = user = User.find(1); user.password = user.password_confirmation = '{{ password }}'; user.save!\""
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: "gitlab-rails runner -e production \"user = user = User.find(1); user.password = user.password_confirmation = '{{ password }}'; user.save!\""

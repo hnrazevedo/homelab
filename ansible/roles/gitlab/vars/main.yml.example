@@ -1,5 +1,3 @@
 ---
-http_port: 80
-https_port: 443
-ssh_port: 22
 password: "changeme"
+fqdn: "gitlab.local.domain"
